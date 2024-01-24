@@ -1,0 +1,32 @@
+# Install the necessary libraries
+!apt-get update
+!apt install chromium-chromedriver
+!pip install selenium
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+
+chrome_options = Options()
+chrome_options.add_argument('--headless')
+chrome_options.add_argument('--no-sandbox')
+chrome_options.add_argument('--disable-dev-shm-usage')
+#Example for AAPL
+
+ticker = 'AAPL'
+
+# Use Selenium to fetch the webpage
+url = f'https://finance.yahoo.com/calendar/earnings?symbol={ticker}'
+driver.get(url)
+
+time.sleep(1)  # Adjust the sleep time as needed
+
+# Get the page source and close the browser
+page_source = driver.page_source
+driver.quit()
+
+tables = pd.read_html(page_source) # Use pandas to read HTML tables from the page source
+df = pd.concat(tables) # Concatenate the tables into a single DataFrame
+
+split_df = df['Earnings Date'].str.split(',', n=2, expand=True)
+df['Dates'] = split_df[0] + ',' + split_df[1]
+df['Dates'] = pd.to_datetime(df['Dates'])
