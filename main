@@ -6,27 +6,103 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
-chrome_options = Options()
-chrome_options.add_argument('--headless')
-chrome_options.add_argument('--no-sandbox')
-chrome_options.add_argument('--disable-dev-shm-usage')
-#Example for AAPL
+# Define retrieval functions
+def calculate_days_to_earnings(ticker, short_date):
+    # Status message
+    print(f"Fetching for {ticker} ticker with short_date: {short_date}")
 
-ticker = 'AAPL'
+    # Set up Selenium with headless Chrome
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    driver = webdriver.Chrome(options=chrome_options)
 
-# Use Selenium to fetch the webpage
-url = f'https://finance.yahoo.com/calendar/earnings?symbol={ticker}'
-driver.get(url)
+    # Fetch webpage
+    url = f'https://finance.yahoo.com/calendar/earnings?symbol={ticker}'
+    driver.get(url)
 
-time.sleep(1)  # Adjust the sleep time as needed
+    # Get the page source and close the browser
+    page_source = driver.page_source
+    driver.quit()
+    time.sleep(1)  # sleep to avoid limit
 
-# Get the page source and close the browser
-page_source = driver.page_source
-driver.quit()
+    try:
+        # Read tables and process data
+        string_data = StringIO(page_source)
+        tables = pd.read_html(string_data)  # Read HTML tables using StringIO
+        source = pd.concat(tables)  # Concatenate the tables
 
-tables = pd.read_html(page_source) # Use pandas to read HTML tables from the page source
-df = pd.concat(tables) # Concatenate the tables into a single DataFrame
+        # Process 'Earnings Date' to extract dates
+        split_df = source['Earnings Date'].str.split(',', n=2, expand=True)
+        source['Dates'] = split_df[0] + ',' + split_df[1]
+        source['Dates'] = pd.to_datetime(source['Dates'])
 
-split_df = df['Earnings Date'].str.split(',', n=2, expand=True)
-df['Dates'] = split_df[0] + ',' + split_df[1]
-df['Dates'] = pd.to_datetime(df['Dates'])
+        # Filter and calculate days to earnings
+        filtered_df = source[source['Dates'] > short_date]
+        if not filtered_df.empty:
+            result_date = filtered_df.nsmallest(1, 'Dates')['Dates'].iloc[0]
+            days_difference = (result_date - short_date).days
+            print(f"Days_to_earnings was {days_difference} ")
+            return days_difference
+        else:
+            print(f"No available days_to_earnings")
+            return "N/A"
+    except ValueError:  # Catch the error if no tables are found
+        print(f"No available days_to_earnings due to Value Error")
+        return "N/A"
+    except KeyError:  # Handle KeyError (e.g., if 'Earnings Date' column is missing)
+        print(f"No available days_to_earnings due to KeyError")
+        return "N/A"
+    except Exception as e:  # Handle any other type of error
+        print(f"An error occurred: {e}")
+        return "N/A"
+
+def last_earnings_call(ticker, short_date):
+    # Status message
+    print(f"Fetching for {ticker} ticker with short_date: {short_date}")
+
+    # Set up Selenium with headless Chrome
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    driver = webdriver.Chrome(options=chrome_options)
+
+    # Fetch webpage
+    url = f'https://finance.yahoo.com/calendar/earnings?symbol={ticker}'
+    driver.get(url)
+
+    # Get the page source and close the browser
+    page_source = driver.page_source
+    driver.quit()
+    time.sleep(1)  # sleep to avoid limit
+
+    try:
+        # Read tables and process data
+        tables = pd.read_html(page_source)  # Read HTML tables
+        source = pd.concat(tables)  # Concatenate the tables
+
+        # Process 'Earnings Date' to extract dates
+        split_df = source['Earnings Date'].str.split(',', n=2, expand=True)
+        source['Dates'] = split_df[0] + ',' + split_df[1]
+        source['Dates'] = pd.to_datetime(source['Dates'])
+
+        # Filter and calculate days to earnings
+        filtered_df = source[source['Dates'] < short_date]
+        if not filtered_df.empty:
+            result_date = filtered_df.nlargest(1, 'Dates')['Dates'].iloc[0]
+            print(f"Last earnings call was on: {result_date} ")
+            return result_date
+        else:
+            print(f"No available last_earnings_call")
+            return "N/A"
+    except ValueError:  # Catch the error if no tables are found
+        print(f"No available last_earnings_call due to Value Error")
+        return "N/A"
+    except KeyError:  # Handle KeyError (e.g., if 'Earnings Date' column is missing)
+        print(f"No available last_earnings_call due to KeyError")
+        return "N/A"
+    except Exception as e:  # Handle any other type of error
+        print(f"An error occurred: {e}")
+        return "N/A"
